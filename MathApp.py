@@ -96,9 +96,11 @@ Reference:
         try:
     response = model.generate_content(prompt)
     q = json.loads(response.text)
+
 except Exception as e:
     st.error("AI temporarily unavailable. Please try again.")
     st.stop()
+    
         st.session_state.q=q
 
     if "q" in st.session_state:
@@ -158,4 +160,4 @@ elif menu=="Progress":
         st.bar_chart(
             {k:v["correct"]
              for k,v in user_data["skills"].items()}
-
+        )
