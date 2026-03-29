@@ -12,24 +12,17 @@ st.set_page_config(
     page_icon="📐"
 )
 
-# 2. LOAD AI BRAIN - Enhanced Error Checking
+# 2. LOAD AI BRAIN - Simplified to save Quota
 if "GEMINI_API_KEY" in st.secrets:
     try:
-        # This cleans up the key in case there are accidental spaces
         raw_key = st.secrets["GEMINI_API_KEY"].strip()
         client = genai.Client(api_key=raw_key)
-        
-        # --- THIS IS THE HANDSHAKE ---
-        # It sends a tiny "Hi" to Google to make sure the key works
-        client.models.generate_content(model="gemini-2.0-flash", contents="Hi")
-        st.sidebar.success("AI Brain: Online ✅")
-        # -----------------------------
-        
+        # We removed the 'test_res' line to save your daily limit!
+        st.sidebar.success("AI Brain: Ready ✅")
     except Exception as e:
-        # If the key is wrong or the model name is 404, the error shows here
-        st.sidebar.error(f"AI Connection Failed: {str(e)}")
+        st.sidebar.error("Connection Error. Please wait 1 minute.")
 else:
-    st.error("API Key missing in Streamlit Cloud Secrets!")
+    st.error("API Key missing!")
     st.stop()
 
 # 3. INITIALIZE MEMORY (The "Digital Notebook")
