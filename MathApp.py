@@ -6,7 +6,11 @@ from PIL import Image
 import io
 
 # 1. PAGE SETUP
-st.set_page_config(layout="wide", page_title="Math Mastery AI")
+st.set_page_config(
+    layout="wide", 
+    page_title="Math Mastery AI", 
+    page_icon="📐"
+)
 
 # 2. LOAD AI BRAIN
 if "GEMINI_API_KEY" in st.secrets:
