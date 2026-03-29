@@ -68,69 +68,75 @@ if menu=="Upload":
         st.success("Syllabus stored permanently!")
 
 # ---------------- QUIZ ----------------
-elif menu=="Quiz":
+elif menu == "Quiz":
 
     if not user_data["syllabus_chunks"]:
         st.warning("Upload syllabus first")
         st.stop()
 
+    # 1. GENERATION LOGIC
     if st.button("Generate Question"):
+        topic = weakest_topic(user_data["skills"])
+        context = retrieve_context(user_data["syllabus_chunks"], topic)
 
-        topic=weakest_topic(user_data["skills"])
-        context=retrieve_context(
-            user_data["syllabus_chunks"],topic)
+        prompt = f"""
+        Create ONE Form 2 math MCQ.
+        Topic: {topic}
 
-        prompt=f"""
-Create ONE Form 2 math MCQ.
-Topic:{topic}
+        Return ONLY a JSON object (no markdown, no backticks):
+        {{
+            "topic": "{topic}",
+            "question": "The question text",
+            "options": {{"A": "...", "B": "...", "C": "...", "D": "...", "E": "..."}},
+            "answer": "A",
+            "explanation": "Why it is correct"
+        }}
 
-Return JSON:
-{{"topic":"","question":"",
-"options":{{"A":"","B":"","C":"","D":"","E":""}},
-"answer":"A","explanation":""}}
+        Reference: {context}
+        """
 
-Reference:
-{context}
-"""
+        try:
+            response = model.generate_content(prompt)
+            # We strip any potential markdown backticks AI might add
+            clean_json = response.text.replace("```json", "").replace("```", "").strip()
+            q_data = json.loads(clean_json)
+            st.session_state.q = q_data  # Store in session state
+        except Exception as e:
+            st.error(f"AI had a hiccup. Error: {e}")
+            st.stop()
 
-    try:
-    response = model.generate_content(prompt)
-    q = json.loads(response.text)
-
-except Exception as e:
-    st.error("AI temporarily unavailable. Please try again.")
-    st.stop()
-    
-        st.session_state.q=q
-
+    # 2. DISPLAY & GRADING LOGIC (Stays visible until next question)
     if "q" in st.session_state:
-        q=st.session_state.q
+        q = st.session_state.q
+        st.subheader(f"Topic: {q['topic']}")
         st.write(q["question"])
 
-        for k,v in q["options"].items():
-            st.write(f"{k}. {v}")
+        # Create a clean list of choices
+        for k, v in q["options"].items():
+            st.write(f"**{k}:** {v}")
 
-        ans=st.text_input("Answer").upper()
+        # Use a form to keep things organized
+        with st.form("quiz_form"):
+            ans = st.text_input("Type your answer (A, B, C, D, or E)").upper().strip()
+            submitted = st.form_submit_button("Check Answer")
 
-        if st.button("Check"):
-            topic=q["topic"]
-            skills=user_data["skills"]
+            if submitted:
+                skills = user_data["skills"]
+                topic = q["topic"]
 
-            if topic not in skills:
-                skills[topic]={"correct":0,"wrong":0}
+                if topic not in skills:
+                    skills[topic] = {"correct": 0, "wrong": 0}
 
-            if ans==q["answer"]:
-                skills[topic]["correct"]+=1
-                st.success("Correct!")
-                user_data["score"]+=1
-            else:
-                skills[topic]["wrong"]+=1
-                st.error("Wrong")
-                st.write(q["explanation"])
+                if ans == q["answer"]:
+                    skills[topic]["correct"] += 1
+                    user_data["score"] += 1
+                    st.success(f"🎉 Correct! {q['explanation']}")
+                else:
+                    skills[topic]["wrong"] += 1
+                    st.error(f"❌ Not quite. The correct answer was {q['answer']}.")
+                    st.info(f"**Explanation:** {q['explanation']}")
 
-            save_db(db)
-            del st.session_state.q
-
+                save_db(db)
 # ---------------- STEP GRADING ----------------
 elif menu=="Step Grading":
 
