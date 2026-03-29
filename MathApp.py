@@ -12,13 +12,22 @@ st.set_page_config(
     page_icon="📐"
 )
 
-# 2. LOAD AI BRAIN
+# 2. LOAD AI BRAIN - Enhanced Error Checking
 if "GEMINI_API_KEY" in st.secrets:
     try:
-        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"].strip())
+        # This cleans up the key in case there are accidental spaces
+        raw_key = st.secrets["GEMINI_API_KEY"].strip()
+        client = genai.Client(api_key=raw_key)
+        
+        # --- THIS IS THE HANDSHAKE ---
+        # It sends a tiny "Hi" to Google to make sure the key works
+        client.models.generate_content(model="gemini-2.0-flash", contents="Hi")
+        st.sidebar.success("AI Brain: Online ✅")
+        # -----------------------------
+        
     except Exception as e:
-        st.error(f"AI Setup Error: {e}")
-        st.stop()
+        # If the key is wrong or the model name is 404, the error shows here
+        st.sidebar.error(f"AI Connection Failed: {str(e)}")
 else:
     st.error("API Key missing in Streamlit Cloud Secrets!")
     st.stop()
@@ -80,7 +89,7 @@ elif menu == "📝 Quiz":
             
             with st.spinner("AI is thinking..."):
                 try:
-                    res = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
+                    res = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
                     st.session_state.current_q = res.text
                 except Exception as e:
                     st.error(f"AI Busy: {e}")
@@ -121,7 +130,7 @@ elif menu == "🧠 Comprehension":
                 
                 try:
                     prompt = f"Question: {target_q}. Check these handwritten steps. Are they right?"
-                    response = client.models.generate_content(model="gemini-1.5-flash", contents=[prompt, white_bg])
+                    response = client.models.generate_content(model="gemini-2.0-flash", contents=[prompt, white_bg])
                     st.info(response.text)
                 except Exception as e:
                     st.error(f"Error: {e}")
