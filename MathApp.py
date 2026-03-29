@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import generativeai as genai
 import json, os, PyPDF2
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
@@ -8,7 +8,7 @@ from streamlit_drawable_canvas import st_canvas
 st.set_page_config(layout="wide", page_title="Math Mastery AI V4")
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
 DB_FILE="student_db.json"
 
@@ -93,7 +93,12 @@ Reference:
 {context}
 """
 
-        q=json.loads(model.generate_content(prompt).text)
+        try:
+    response = model.generate_content(prompt)
+    q = json.loads(response.text)
+except Exception as e:
+    st.error("AI temporarily unavailable. Please try again.")
+    st.stop()
         st.session_state.q=q
 
     if "q" in st.session_state:
@@ -153,4 +158,4 @@ elif menu=="Progress":
         st.bar_chart(
             {k:v["correct"]
              for k,v in user_data["skills"].items()}
-        )
+
