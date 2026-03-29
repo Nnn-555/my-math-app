@@ -12,13 +12,18 @@ st.set_page_config(
     page_icon="📐"
 )
 
-# 2. LOAD AI BRAIN - Using the modern google-genai library
+# 2. LOAD AI BRAIN - Enhanced Error Checking
 if "GEMINI_API_KEY" in st.secrets:
     try:
-        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+        # Check if the key starts with the standard 'AIza' prefix
+        raw_key = st.secrets["GEMINI_API_KEY"].strip()
+        client = genai.Client(api_key=raw_key)
+        # Test connection immediately
+        test_res = client.models.generate_content(model="gemini-1.5-flash", contents="Hi")
+        st.sidebar.success("AI Brain: Online ✅")
     except Exception as e:
-        st.error(f"AI Setup Error: {e}")
-        st.stop()
+        st.sidebar.error(f"AI Connection Failed: {str(e)}")
+        # This will show the REAL error in the sidebar so we can fix it!
 else:
     st.error("API Key missing in Streamlit Cloud Secrets!")
     st.stop()
@@ -44,37 +49,45 @@ st.sidebar.write(f"Points: {user_data['score']}")
 st.sidebar.write(f"Mistakes tracked: {len(user_data['wrong_answers'])}")
 
 # ---------------------------------------------------------
-# MENU 1: FILE (Syllabus Upload)
-# ---------------------------------------------------------
+# 📂 MENU 1: FILE (Syllabus Upload)
 if menu == "📁 File":
     st.header(f"Syllabus Manager - {current_user}")
-    st.info("💡 Tip: Download your PDF from Google Drive to this tablet first, then click below to upload.")
     
-    uploaded_file = st.file_uploader("Upload School Syllabus (PDF)", type=["pdf"])
-    
-    if uploaded_file:
-        with st.spinner("AI is reading the syllabus..."):
-            try:
-                pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                text = "".join([page.extract_text() for page in pdf_reader.pages])
-                st.session_state.user_db[current_user]["syllabus"] = text
-                st.success("Syllabus Updated! AI now knows your specific math level.")
-            except Exception as e:
-                st.error("Could not read PDF. Please try a different file.")
+    # Check if we already have a file in memory
+    if user_data["syllabus"]:
+        st.success("✅ Syllabus is already loaded and ready!")
+        if st.button("Clear and Upload New File"):
+            st.session_state.user_db[current_user]["syllabus"] = ""
+            st.rerun()
+    else:
+        st.info("💡 Please upload your school PDF to begin.")
+        uploaded_file = st.file_uploader("Upload School Syllabus (PDF)", type=["pdf"])
+        
+        if uploaded_file:
+            with st.spinner("AI is reading the syllabus..."):
+                try:
+                    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                    text = "".join([page.extract_text() for page in pdf_reader.pages])
+                    # SAVE TO MEMORY
+                    st.session_state.user_db[current_user]["syllabus"] = text
+                    st.success("Syllabus Saved! You can now go to the Quiz.")
+                except Exception as e:
+                    st.error("Could not read PDF. Try a different file.")
 
 # ---------------------------------------------------------
 # MENU 2: QUIZ (Multiple Choice)
 # ---------------------------------------------------------
 elif menu == "📝 Quiz":
-    col1, col2 = st.columns([1, 1.5])
-    with col1:
-        st.subheader("Multiple Choice Quiz")
+    st.subheader("Multiple Choice Quiz")
+    
+    # Check if the "Notebook" has the syllabus
+    if not user_data["syllabus"]:
+        st.warning("⚠️ No syllabus found! Please go to the 'File' tab and upload your PDF first.")
+    else:
         if st.button("Generate New Question"):
-            context = user_data["syllabus"] if user_data["syllabus"] else "General Form 2 Malaysia Math"
-            # Structured prompt for consistency
-            prompt = (
-                f"Based on this syllabus: {context[:1500]}\n\n"
-                "Task: Create ONE math multiple choice question (MCQ) for a 13-year-old student. "
+            # Use the saved text from memory
+            context = user_data["syllabus"]
+            prompt = f"Based on this syllabus text: {context[:2000]}... Create a Form 2 Math question.
                 "Include 5 options (A to E). At the very end of your response, write 'Correct Answer: [Letter]'."
             )
             
@@ -127,15 +140,18 @@ elif menu == "🧠 Comprehension":
 
     if st.session_state.get("analyze") and canvas_result.image_data is not None:
         with st.spinner("AI is examining your handwriting..."):
-            img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA').convert('RGB')
-            prompt = f"The math question is: {target_q}. Look at the handwritten steps in this image. Explain if the steps are logically correct. Be very encouraging like a kind teacher."
+            # This logic creates a solid white background so the AI can see the ink
+            rgba_image = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+            white_bg = Image.new("RGB", rgba_image.size, (255, 255, 255))
+            white_bg.paste(rgba_image, mask=rgba_image.split()[3]) # Use alpha channel as mask
+            
+            prompt = f"The math question is: {target_q}. Look at the handwritten steps. Are they correct? Explain why."
             
             try:
-                response = client.models.generate_content(model="gemini-1.5-flash", contents=[prompt, img])
+                response = client.models.generate_content(model="gemini-1.5-flash", contents=[prompt, white_bg])
                 st.info(response.text)
-                st.session_state.analyze = False
             except Exception as e:
-                st.error("AI couldn't see the image clearly. Try drawing thicker lines.")
+                st.error(f"Analysis Error: {e}")
 
 # ---------------------------------------------------------
 # MENU 4: REVISION (Mistakes Tracker)
