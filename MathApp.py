@@ -12,17 +12,18 @@ st.set_page_config(
     page_icon="📐"
 )
 
-# 2. LOAD AI BRAIN - Simplified to save Quota
+# 2. LOAD AI BRAIN - Optimized for Free Tier Quota
 if "GEMINI_API_KEY" in st.secrets:
     try:
+        # We only create the connection; we DO NOT send a test message here.
+        # This saves your requests for the actual Quiz and Comprehension.
         raw_key = st.secrets["GEMINI_API_KEY"].strip()
         client = genai.Client(api_key=raw_key)
-        # We removed the 'test_res' line to save your daily limit!
         st.sidebar.success("AI Brain: Ready ✅")
     except Exception as e:
-        st.sidebar.error("Connection Error. Please wait 1 minute.")
+        st.sidebar.error("Setup Error. Check your API Key.")
 else:
-    st.error("API Key missing!")
+    st.error("API Key missing in Secrets!")
     st.stop()
 
 # 3. INITIALIZE MEMORY (The "Digital Notebook")
