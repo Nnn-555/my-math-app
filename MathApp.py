@@ -93,7 +93,7 @@ Reference:
 {context}
 """
 
-        try:
+     try:
     response = model.generate_content(prompt)
     q = json.loads(response.text)
 
